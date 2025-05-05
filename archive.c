@@ -47,24 +47,55 @@ void atualizar_offsets(struct Diretorio *dir){
 }
 
 int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long deslocamento){
-
-    fprintf(stderr, "Deslocando membro: %ld\n", buffer->tamanho);
-
-    // Lê os dados no offset atual
-    if(fseek(vc, m->offset, SEEK_SET) != 0 || fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
-        perror("Erro ao ler dados do membro para deslocamento");
+    
+    if(!vc || !buffer || !m){
+        fprintf(stderr, "Parâmetro nulo em deslocar_membro.\n");
         return 0;
     }
 
-    // Escreve os dados no novo offset
-    if(fseek(vc, m->offset + deslocamento, SEEK_SET) != 0 || fwrite(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
+    // Lê os dados do local atual
+    if(fseek(vc, m->offset, SEEK_SET) != 0){
+        perror("Erro ao posicionar para leitura do membro");
+        return 0;
+    }
+
+    long inicio_leitura = ftell(vc);
+
+    fprintf(stderr, "[DEBUG] Espera-se ler %ld bytes no offset %ld\n", m->tamanho_armazenado, m->offset);
+
+    if (fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado) {
+        if (feof(vc)) {
+            fprintf(stderr, "Erro: fim de arquivo inesperado ao ler membro (esperava %ld bytes)\n", m->tamanho_armazenado);
+        } else if (ferror(vc)) {
+            perror("Erro ao ler dados do membro para deslocamento");
+        } else {
+            fprintf(stderr, "Erro desconhecido ao ler dados do membro (sem EOF nem ferror)\n");
+        }
+        return 0;
+    }
+
+    fprintf(stderr, "[DEBUG] Leu %ld bytes a partir do offset %ld\n", m->tamanho_armazenado, inicio_leitura);
+
+    // Escreve os dados no novo local
+    long novo_offset = m->offset + deslocamento;
+
+    if(fseek(vc, novo_offset, SEEK_SET) != 0){
+        perror("Erro ao posicionar para escrita do membro");
+        return 0;
+    }
+
+    if(fwrite(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
         perror("Erro ao escrever dados do membro deslocado");
         return 0;
     }
 
+    printf("[DEBUG] Escreveu no novo offset %ld\n", novo_offset);
+
+    // Atualiza o offset do membro na struct
+    m->offset = novo_offset;
+
     return 1;
 }
-
 int ler_diretorio(FILE *vc, struct Diretorio *dir){
 
     if(!vc || !dir){
@@ -98,9 +129,6 @@ int escrever_diretorio(FILE *vc, const struct Diretorio *dir){
         return 0;
     }
 
-    // Garante sincronização do buffer antes de mudar o ponteiro de arquivo
-    fflush(vc);
-
     // Posiciona no início do arquivo
     if(fseek(vc, 0, SEEK_SET) != 0){
         perror("Erro ao posicionar ponteiro no início do arquivo");
@@ -113,17 +141,11 @@ int escrever_diretorio(FILE *vc, const struct Diretorio *dir){
         return 0;
     }
 
-    long pos = ftell(vc);
-    fprintf(stderr, "Tentando escrever membros em = em posição %ld\n", pos);
-
     // Escreve os membros
     if(fwrite(dir->membros, sizeof(struct Membro), dir->quantidade, vc) != (size_t)dir->quantidade){
         perror("Erro ao salvar membros");
         return 0;
     }
-
-    // Força gravação física no disco (opcional, mas seguro)
-    fflush(vc);
 
     return 1;
 }

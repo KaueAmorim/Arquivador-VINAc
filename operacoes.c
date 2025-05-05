@@ -97,7 +97,7 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
                 fclose(fp);
 
-                fseek(vc, novo.offset, SEEK_SET);
+                fseek(vc, existente->offset, SEEK_SET);
                 if(fwrite(buffer->dados, 1, existente->tamanho_armazenado, vc) != existente->tamanho_armazenado){
                     perror("Erro ao escrever conteúdo do novo membro");
                 }
@@ -113,35 +113,17 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 continue;
             }
 
+            fseek(vc, 0, SEEK_SET);
+
             // Desloca membros para abrir espaço para nova struct Membro no diretório
             for(int j = dir->quantidade - 2; j >= 0; j--){
+                fprintf(stderr, "Movendo membro: %s\n", dir->membros[j].nome);
                 deslocar_membro(vc, buffer, &dir->membros[j], sizeof(struct Membro));
             }
 
             atualizar_offsets(dir);
-
-            fprintf(stderr, "\n[DUMP DIRETÓRIO]\n");
-            fprintf(stderr, "Quantidade de membros: %d\n", dir->quantidade);
-            fprintf(stderr, "Tamanho do diretório: %lu bytes\n", sizeof(int) + dir->quantidade * sizeof(struct Membro));
-            for (int k = 0; k < dir->quantidade; k++) {
-                fprintf(stderr, "Membro %d: nome = %s | offset = %ld | tamanho = %ld\n", k, dir->membros[k].nome, dir->membros[k].offset, dir->membros[k].tamanho_armazenado);
-            }
-
-            long pos = ftell(vc);
-            fprintf(stderr, "[DEBUG antes do escrever_diretorio] Ponteiro do arquivo está em %ld\n", pos);
-
             fseek(vc, 0, SEEK_SET);
-
-            pos = ftell(vc);
-            fprintf(stderr, "[DEBUG antes do escrever_diretorio] Ponteiro do arquivo está em %ld\n", pos);
             escrever_diretorio(vc, dir);
-
-            fprintf(stderr, "\n[DUMP DIRETÓRIO]\n");
-            fprintf(stderr, "Quantidade de membros: %d\n", dir->quantidade);
-            fprintf(stderr, "Tamanho do diretório: %lu bytes\n", sizeof(int) + dir->quantidade * sizeof(struct Membro));
-            for (int k = 0; k < dir->quantidade; k++) {
-                fprintf(stderr, "Membro %d: nome = %s | offset = %ld | tamanho = %ld\n", k, dir->membros[k].nome, dir->membros[k].offset, dir->membros[k].tamanho_armazenado);
-            }
 
             // Escreve novo membro no final do arquivo
             FILE *fp = fopen(novo.nome, "rb");
@@ -269,8 +251,6 @@ void executar_listagem(struct Diretorio *dir){
         printf("[Diretório vazio]\n");
         return;
     }
-
-    printf("Quantidade de membros: %d\n", dir->quantidade);
     
     for(int i = 0; i < dir->quantidade; i++){
         imprimir_membro(&dir->membros[i]);

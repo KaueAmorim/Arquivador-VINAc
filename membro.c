@@ -6,7 +6,7 @@
 
 struct Membro criar_membro(const char *caminho_arquivo, int ordem){
     
-    struct Membro novo;
+    struct Membro novo = {0};
     struct stat info;
 
     if(stat(caminho_arquivo, &info) == -1){
@@ -21,10 +21,7 @@ struct Membro criar_membro(const char *caminho_arquivo, int ordem){
     novo.ordem = ordem;
     novo.offset = -1;
 
-    if(strncpy(novo.nome, caminho_arquivo, sizeof(novo.nome)) == NULL){
-        perror("Erro ao copiar nome do arquivo");
-        exit(1);
-    }
+    strncpy(novo.nome, caminho_arquivo, sizeof(novo.nome) - 1);
     novo.nome[sizeof(novo.nome) - 1] = '\0';
     
     return novo;
