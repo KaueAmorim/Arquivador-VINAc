@@ -37,11 +37,12 @@ void destruir_buffer(struct Buffer *buffer){
 }
 
 void atualizar_offsets(struct Diretorio *dir){
-    
+
     long offset = sizeof(int) + dir->quantidade * sizeof(struct Membro);
 
     for(int i = 0; i < dir->quantidade; i++){
         dir->membros[i].offset = offset;
+        printf ("mem %d offset %d\n", i, dir->membros[i].offset);
         offset += dir->membros[i].tamanho_armazenado;
     }
 }
@@ -83,6 +84,8 @@ int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long desl
         perror("Erro ao posicionar para escrita do membro");
         return 0;
     }
+
+    printf ("current file pointer location: %d\n", ftell (vc));
 
     if(fwrite(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
         perror("Erro ao escrever dados do membro deslocado");

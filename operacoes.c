@@ -89,7 +89,7 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             fseek(vc, 0, SEEK_SET);
             escrever_diretorio(vc, dir);
 
-            FILE *fp = fopen(novo.nome, "rb");
+            FILE *fp = fopen(existente->nome, "rb");
             if(fp){
                 if(fread(buffer->dados, 1, existente->tamanho_armazenado, fp) != existente->tamanho_armazenado){
                     perror("Erro ao ler conteúdo do novo membro");
@@ -122,8 +122,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             }
 
             atualizar_offsets(dir);
+            imprimir_membro(&(dir->membros[dir->quantidade - 1]));
             fseek(vc, 0, SEEK_SET);
             escrever_diretorio(vc, dir);
+            novo = dir->membros[dir->quantidade - 1];
 
             // Escreve novo membro no final do arquivo
             FILE *fp = fopen(novo.nome, "rb");
@@ -133,6 +135,8 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 }
 
                 fclose(fp);
+
+                printf("Offset: %ld\n", novo.offset);
 
                 fseek(vc, novo.offset, SEEK_SET);
                 if(fwrite(buffer->dados, 1, novo.tamanho_armazenado, vc) != novo.tamanho_armazenado){
