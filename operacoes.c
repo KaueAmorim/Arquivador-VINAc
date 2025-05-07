@@ -106,6 +106,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 fprintf(stderr, "Erro ao abrir %s para leitura\n", novo.nome);
             }
 
+            if(diff < 0){
+                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1].offset + dir->membros[dir->quantidade - 1].tamanho_armazenado);
+            }
+
         } 
         else{
             if(!adicionar_membro(dir, novo)){
