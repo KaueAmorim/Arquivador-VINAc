@@ -121,12 +121,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
             // Desloca membros para abrir espaço para nova struct Membro no diretório
             for(int j = dir->quantidade - 2; j >= 0; j--){
-                fprintf(stderr, "Movendo membro: %s\n", dir->membros[j].nome);
                 deslocar_membro(vc, buffer, &dir->membros[j], sizeof(struct Membro));
             }
 
             atualizar_offsets(dir);
-            imprimir_membro(&(dir->membros[dir->quantidade - 1]));
             fseek(vc, 0, SEEK_SET);
             escrever_diretorio(vc, dir);
             novo = dir->membros[dir->quantidade - 1];
@@ -139,8 +137,6 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 }
 
                 fclose(fp);
-
-                printf("Offset: %ld\n", novo.offset);
 
                 fseek(vc, novo.offset, SEEK_SET);
                 if(fwrite(buffer->dados, 1, novo.tamanho_armazenado, vc) != novo.tamanho_armazenado){

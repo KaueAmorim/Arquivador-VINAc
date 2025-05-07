@@ -42,7 +42,6 @@ void atualizar_offsets(struct Diretorio *dir){
 
     for(int i = 0; i < dir->quantidade; i++){
         dir->membros[i].offset = offset;
-        printf ("mem %d offset %d\n", i, dir->membros[i].offset);
         offset += dir->membros[i].tamanho_armazenado;
     }
 }
@@ -60,7 +59,8 @@ int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long desl
         return 0;
     }
 
-    if (fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado) {
+    if(fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
+        perror("Erro ao escrever dados do membro deslocado");
         return 0;
     }
 
