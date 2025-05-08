@@ -120,7 +120,6 @@ int ler_diretorio(FILE *vc, struct Diretorio *dir){
     }
 
     if(fread(&(dir->quantidade), sizeof(int), 1, vc) != 1){
-        perror("Erro ao ler quantidade de membros");
         return 0;
     }
 

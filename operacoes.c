@@ -63,6 +63,8 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
         if(!redimensionar_buffer(buffer, novo->tamanho_armazenado)){
             fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
+            free(novo);
+            continue;
         }
 
         if(existente){
@@ -75,10 +77,12 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
             }
-            else if (diff < 0){
+            else if(diff < 0){
                 for(int j = existente->ordem + 1; j < dir->quantidade; j++){
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
+
+                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
             atualizar_membro(existente, cmd->membros[i]);
@@ -102,11 +106,6 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             else{
                 fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
             }
-
-            if(diff < 0){
-                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
-            }
-
         } 
         else{
             if(!adicionar_membro(dir, novo)){
@@ -153,47 +152,52 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
 
         struct Membro *novo = criar_membro(cmd->membros[i], dir->quantidade);
 
-        if(!redimensionar_buffer(buffer, novo->tamanho_armazenado)){
+        if(!redimensionar_buffer(buffer, novo->tamanho_original)){
             fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
+            free(novo);
+            continue;
         }
 
+        // Ler o conteúdo original do arquivo
         FILE *fp = fopen(novo->nome, "rb");
-        if(fp){
-            if(fread(buffer->dados, novo->tamanho_armazenado, 1, fp) != 1){
-                perror("Erro ao ler conteúdo do novo membro");
-            }
-
-            fclose(fp);
-        } 
-        else{
+        if(!fp){
             fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
+            free(novo);
+            continue;
         }
 
+        if(fread(buffer->dados, novo->tamanho_original, 1, fp) != 1){
+            perror("Erro ao ler conteúdo do arquivo original");
+            fclose(fp);
+            free(novo);
+            continue;
+        }
+        fclose(fp);
+
+        // Aloca espaço de saída para compressão
         unsigned char *output;
         if(!(output = malloc((novo->tamanho_original * 1.004) + 1))){
-            perror("Erro ao alocar buffer de saída");
-            return;
-        }
-
-        int tamanho_comprimido = LZ_Compress(buffer->dados, output, novo->tamanho_original);
-
-        if(tamanho_comprimido <= 0){
-            fprintf(stderr, "Erro ao comprimir '%s'\n", cmd->membros[i]);
-            free(output);
+            perror("Erro ao alocar memória para compressão");
+            free(novo);
             continue;
         }
 
+        // Comprime os dados
+        int tamanho_comprimido = LZ_Compress(buffer->dados, output, novo->tamanho_original);
+        
+        // Compressão foi ineficiente — armazenar plano
         if(tamanho_comprimido >= novo->tamanho_original){
-            // Compressão foi ineficiente — armazenar plano
             free(novo);
             free(output);
-            executar_insercao_plana(vc, dir, cmd, buffer);
+
+            struct Comando unico = {OP_INSERIR_PLANO, cmd->arquivo_vc, &cmd->membros[i], 1, NULL};
+            executar_insercao_plana(vc, dir, &unico, buffer);
+
             continue;
         }
-        else{
-            // Compressão foi eficiente — armazenar comprimido
-            novo->tamanho_armazenado = tamanho_comprimido;
-        }
+        
+        // Compressão foi eficiente — armazenar comprimido
+        novo->tamanho_armazenado = tamanho_comprimido;
 
         if(existente){
             long diff = novo->tamanho_armazenado - existente->tamanho_armazenado;
@@ -203,16 +207,16 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
             }
-            else if (diff < 0){
+            else if(diff < 0){
                 for(int j = existente->ordem + 1; j < dir->quantidade; j++){
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
+
+                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
             atualizar_membro(existente, cmd->membros[i]);
-
-            existente->tamanho_armazenado = novo->tamanho_armazenado;
-            free(novo);
+            existente->tamanho_armazenado = tamanho_comprimido;
 
             atualizar_offsets(dir);
             fseek(vc, 0, SEEK_SET);
@@ -223,14 +227,12 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
                 perror("Erro ao escrever conteúdo do membro substituído");
             }
 
-            if(diff < 0){
-                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
-            }
-
+            free(novo); // porque não foi adicionado ao diretório
         } 
         else{
             if(!adicionar_membro(dir, novo)){
                 fprintf(stderr, "Erro ao adicionar membro: %s\n", cmd->membros[i]);
+                free(output);
                 free(novo);
                 continue;
             }
