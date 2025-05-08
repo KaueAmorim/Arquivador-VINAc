@@ -32,7 +32,7 @@ int main(int argc, char **argv){
             break;
         case OP_INSERIR_COMPRIMIDO:
             printf("Inserção com compressão\n");
-            executar_insercao_comprimida(vc, dir, &cmd);
+            executar_insercao_comprimida(vc, dir, &cmd, buffer);
             break;
         case OP_MOVER:
             printf("Movimentação\n");

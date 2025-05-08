@@ -46,7 +46,7 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 /**
  * Executa a operação de inserção com compressão (-ic).
  */
-void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comando *cmd);
+void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer);
 
 /**
  * Executa a movimentação de membros dentro do diretório (-m).
