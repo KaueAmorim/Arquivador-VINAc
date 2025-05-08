@@ -14,11 +14,10 @@ struct Diretorio *criar_diretorio(){
         return NULL;
     }
 
-    dir->membros = NULL;
     dir->quantidade = 0;
     dir->capacidade = CAPACIDADE_INICIAL;
 
-    if(!(dir->membros = malloc(dir->capacidade * sizeof(struct Membro)))){
+    if(!(dir->membros = malloc(dir->capacidade * sizeof(struct Membro *)))){
         perror("Erro ao alocar membros do diretório");
         return NULL;
     }
@@ -29,6 +28,9 @@ struct Diretorio *criar_diretorio(){
 void destruir_diretorio(struct Diretorio *dir){
     
     if(dir){
+        for(int i = 0; i < dir->quantidade; i++){
+            free(dir->membros[i]);
+        }
         free(dir->membros);
         free(dir);
     }
@@ -39,7 +41,7 @@ int garantir_capacidade_diretorio(struct Diretorio *dir) {
     if(dir->quantidade > dir->capacidade) {
         dir->capacidade = dir->quantidade * 2;
 
-        if(!(dir->membros = realloc(dir->membros, dir->capacidade * sizeof(struct Membro)))) {
+        if(!(dir->membros = realloc(dir->membros, dir->capacidade * sizeof(struct Membro *)))) {
             perror("Erro ao alocar memória para membros");
             return 0;
         }
@@ -51,7 +53,7 @@ int garantir_capacidade_diretorio(struct Diretorio *dir) {
 int encontrar_indice(const struct Diretorio *dir, const char *nome) {
     
     for(int i = 0; i < dir->quantidade; i++) {
-        if((strcmp(dir->membros[i].nome, nome) == 0)) {
+        if((strcmp(dir->membros[i]->nome, nome) == 0)) {
             return i;
         }
     }
@@ -59,7 +61,7 @@ int encontrar_indice(const struct Diretorio *dir, const char *nome) {
     return -1;
 }
 
-int adicionar_membro(struct Diretorio *dir, struct Membro novo){
+int adicionar_membro(struct Diretorio *dir, struct Membro *novo){
 
     (dir->quantidade)++;
 
@@ -84,7 +86,7 @@ int remover_membro(struct Diretorio *dir, const char *nome){
 
     for(int i = id; i < dir->quantidade; i++) {
         dir->membros[i] = dir->membros[i + 1];
-        dir->membros[i].ordem = i;
+        dir->membros[i]->ordem = i;
     }
 
     return 1;
@@ -102,5 +104,5 @@ struct Membro *buscar_membro(struct Diretorio *dir, const char *nome){
         return NULL;
     }
 
-    return &dir->membros[id];
+    return dir->membros[id];
 }

@@ -11,6 +11,11 @@
 struct Buffer *criar_buffer();
 
 /**
+ * Redimensiona um buffer.
+ */
+int redimensionar_buffer(struct Buffer *buffer, int novo_tamanho);
+
+/**
  * Libera toda a memória associada ao buffer.
  */
 void destruir_buffer(struct Buffer *buffer);

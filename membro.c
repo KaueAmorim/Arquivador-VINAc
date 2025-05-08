@@ -4,25 +4,32 @@
 #include "operacoes.h"
 
 
-struct Membro criar_membro(const char *caminho_arquivo, int ordem){
+struct Membro *criar_membro(const char *caminho_arquivo, int ordem){
     
-    struct Membro novo = {0};
+    struct Membro *novo;
     struct stat info;
+
+    if(!(novo = malloc(sizeof(struct Membro)))){
+        perror("Erro ao alocar membro");
+        return NULL;
+    }
+
+    memset(novo, 0, sizeof(struct Membro));
 
     if(stat(caminho_arquivo, &info) == -1){
         perror("Erro ao acessar o arquivo");
         exit(1);
     }
 
-    novo.uid = info.st_uid;
-    novo.tamanho_original = info.st_size;
-    novo.tamanho_armazenado = info.st_size;
-    novo.data_modificacao = info.st_mtime;
-    novo.ordem = ordem;
-    novo.offset = -1;
+    novo->uid = info.st_uid;
+    novo->tamanho_original = info.st_size;
+    novo->tamanho_armazenado = info.st_size;
+    novo->data_modificacao = info.st_mtime;
+    novo->ordem = ordem;
+    novo->offset = -1;
 
-    strncpy(novo.nome, caminho_arquivo, sizeof(novo.nome) - 1);
-    novo.nome[sizeof(novo.nome) - 1] = '\0';
+    strncpy(novo->nome, caminho_arquivo, sizeof(novo->nome) - 1);
+    novo->nome[sizeof(novo->nome) - 1] = '\0';
     
     return novo;
 }

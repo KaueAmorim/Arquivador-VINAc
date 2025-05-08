@@ -14,18 +14,40 @@ struct Buffer *criar_buffer(struct Diretorio *dir){
     }
 
     buffer->tamanho = 1;
+
+    // Encontra o maior tamanho_armazenado entre os membros
     for(int i = 0; i < dir->quantidade; i++){
-        if(dir->membros[i].tamanho_original > buffer->tamanho){
-            buffer->tamanho = dir->membros[i].tamanho_original;
+        if(dir->membros[i] && dir->membros[i]->tamanho_armazenado > buffer->tamanho){
+            buffer->tamanho = dir->membros[i]->tamanho_armazenado;
         }
     }
 
     if(!(buffer->dados = malloc(buffer->tamanho))){
-        perror("Erro ao alocar memória para buffer");
+        perror("Erro ao alocar dados do buffer");
+        free(buffer);
         return NULL;
     }
 
     return buffer;
+}
+
+int redimensionar_buffer(struct Buffer *buffer, int novo_tamanho){
+    
+    if(!buffer || novo_tamanho <= buffer->tamanho){
+        return 1;
+    }
+
+    void *novo_dados;
+    
+    if(!(novo_dados = realloc(buffer->dados, novo_tamanho))){
+        perror("Erro ao redimensionar buffer");
+        return 0;
+    }
+
+    buffer->dados = novo_dados;
+    buffer->tamanho = novo_tamanho;
+
+    return 1;
 }
 
 void destruir_buffer(struct Buffer *buffer){
@@ -38,17 +60,23 @@ void destruir_buffer(struct Buffer *buffer){
 
 void atualizar_offsets(struct Diretorio *dir){
 
+    if(!dir || !dir->membros){
+        return;
+    }
+
     long offset = sizeof(int) + dir->quantidade * sizeof(struct Membro);
 
     for(int i = 0; i < dir->quantidade; i++){
-        dir->membros[i].offset = offset;
-        offset += dir->membros[i].tamanho_armazenado;
+        if(dir->membros[i]){
+            dir->membros[i]->offset = offset;
+            offset += dir->membros[i]->tamanho_armazenado;
+        }
     }
 }
 
 int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long deslocamento){
     
-    if(!vc || !buffer || !m){
+    if(!vc || !buffer || !buffer->dados || !m){
         fprintf(stderr, "Parâmetro nulo em deslocar_membro.\n");
         return 0;
     }
@@ -59,7 +87,7 @@ int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long desl
         return 0;
     }
 
-    if(fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
+    if(fread(buffer->dados, m->tamanho_armazenado, 1, vc) != 1){
         perror("Erro ao escrever dados do membro deslocado");
         return 0;
     }
@@ -69,7 +97,7 @@ int deslocar_membro(FILE *vc, struct Buffer *buffer, struct Membro *m, long desl
         return 0;
     }
 
-    if(fwrite(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado){
+    if(fwrite(buffer->dados, m->tamanho_armazenado, 1, vc) != 1){
         perror("Erro ao escrever dados do membro deslocado");
         return 0;
     }
@@ -86,7 +114,10 @@ int ler_diretorio(FILE *vc, struct Diretorio *dir){
         return 0;
     }
 
-    fseek(vc, 0, SEEK_SET);
+    if(fseek(vc, 0, SEEK_SET) != 0){
+        perror("Erro ao posicionar ponteiro no início do arquivo");
+        return 0;
+    }
 
     if(fread(&(dir->quantidade), sizeof(int), 1, vc) != 1){
         perror("Erro ao ler quantidade de membros");
@@ -98,9 +129,18 @@ int ler_diretorio(FILE *vc, struct Diretorio *dir){
         return 0;
     }
 
-    if(fread(dir->membros, sizeof(struct Membro), dir->quantidade, vc) != (size_t)dir->quantidade){
-        perror("Erro ao ler membros do diretório");
-        return 0;
+    // Aloca e lê cada membro individualmente
+    for(int i = 0; i < dir->quantidade; i++){
+
+        if(!(dir->membros[i] = malloc(sizeof(struct Membro)))){
+            perror("Erro ao alocar membro");
+            return 0;
+        }
+
+        if(fread(dir->membros[i], sizeof(struct Membro), 1, vc) != 1){
+            perror("Erro ao ler dados do membro");
+            return 0;
+        }
     }
 
     return 1;
@@ -126,13 +166,16 @@ int escrever_diretorio(FILE *vc, const struct Diretorio *dir){
     }
 
     // Escreve os membros
-    if(fwrite(dir->membros, sizeof(struct Membro), dir->quantidade, vc) != (size_t)dir->quantidade){
-        perror("Erro ao salvar membros");
-        return 0;
+    for(int i = 0; i < dir->quantidade; i++){
+        if(fwrite(dir->membros[i], sizeof(struct Membro), 1, vc) != 1){
+            perror("Erro ao salvar membros");
+            return 0;
+        }
     }
 
     return 1;
 }
+
 int escrever_membros(FILE *vc, struct Diretorio *dir){
 
     if(!vc || !dir){
@@ -141,8 +184,8 @@ int escrever_membros(FILE *vc, struct Diretorio *dir){
 
     size_t max_tamanho = 0;
     for(int i = 0; i < dir->quantidade; i++){
-        if(dir->membros[i].tamanho_original > max_tamanho){
-            max_tamanho = dir->membros[i].tamanho_original;
+        if(dir->membros[i]->tamanho_original > max_tamanho){
+            max_tamanho = dir->membros[i]->tamanho_original;
         }
     }
 
@@ -163,7 +206,7 @@ int escrever_membros(FILE *vc, struct Diretorio *dir){
     
     for(int i = 0; i < dir->quantidade; i++){
         
-        struct Membro *m = &dir->membros[i];
+        struct Membro *m = dir->membros[i];
 
         FILE *file = fopen(m->nome, "r");
         if(!file){

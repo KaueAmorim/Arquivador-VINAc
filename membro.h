@@ -25,7 +25,7 @@ struct Membro{
  * Preenche metadados como UID, tamanho, data de modificação etc.
  * `ordem` é a ordem de inserção (gerenciada pelo diretório).
  */
-struct Membro criar_membro(const char *caminho_arquivo, int ordem);
+struct Membro *criar_membro(const char *caminho_arquivo, int ordem);
 
 /**
  * Atualiza os dados do membro com base em um novo arquivo (substituição).

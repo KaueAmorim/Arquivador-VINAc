@@ -2,7 +2,7 @@
 EXEC = vinac
 
 # Compilador e flags
-CC = gcc
+CC = gcc -g
 
 # Arquivos-fonte
 SRC = main.c membro.c diretorio.c archive.c operacoes.c lz.c

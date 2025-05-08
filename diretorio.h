@@ -5,9 +5,9 @@
 #include <stdio.h>
 
 struct Diretorio {
-    struct Membro *membros;  // Vetor dinâmico de membros
-    int quantidade;          // Quantidade atual de membros
-    int capacidade;          // Tamanho alocado do vetor
+    struct Membro **membros;  // Vetor dinâmico de ponteiros para membros
+    int quantidade;           // Quantidade atual de membros
+    int capacidade;           // Tamanho alocado do vetor
 };
 
 /**
@@ -39,7 +39,7 @@ int encontrar_indice(const struct Diretorio *dir, const char *nome);
  * Adiciona um novo membro ao diretório.
  * Se já existir um membro com o mesmo nome, substitui.
  */
-int adicionar_membro(struct Diretorio *dir, struct Membro novo);
+int adicionar_membro(struct Diretorio *dir, struct Membro *novo);
 
 /**
  * Remove um membro pelo nome.
