@@ -264,8 +264,80 @@ void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd,
     return;
 }
 
-void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
-    return;
+void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer) {
+    
+    if (!vc || !dir || !buffer) {
+        fprintf(stderr, "Erro: parâmetros nulos em executar_extracao.\n");
+        return;
+    }
+
+    int extrair_todos = (cmd->num_membros == 0);
+
+    for (int i = 0; i < dir->quantidade; i++) {
+        struct Membro *m = dir->membros[i];
+
+        if (!extrair_todos) {
+            int encontrado = 0;
+            for (int j = 0; j < cmd->num_membros; j++) {
+                if (strcmp(m->nome, cmd->membros[j]) == 0) {
+                    encontrado = 1;
+                    break;
+                }
+            }
+            if (!encontrado) continue;
+        }
+
+        if (!redimensionar_buffer(buffer, m->tamanho_armazenado)) {
+            fprintf(stderr, "Erro ao redimensionar buffer para membro '%s'\n", m->nome);
+            continue;
+        }
+
+        if (fseek(vc, m->offset, SEEK_SET) != 0) {
+            perror("Erro ao posicionar no archive");
+            continue;
+        }
+
+        if (fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado) {
+            fprintf(stderr, "Erro ao ler dados do membro '%s'\n", m->nome);
+            continue;
+        }
+
+        // Cria os diretórios ausentes, se necessário
+        criar_diretorios_para(m->nome);
+
+        FILE *saida = fopen(m->nome, "wb");
+        if (!saida) {
+            perror("Erro ao criar arquivo extraído");
+            continue;
+        }
+
+        if (m->tamanho_armazenado != m->tamanho_original) {
+            // Membro comprimido → descomprimir
+            unsigned char *saida_descomprimida = malloc(m->tamanho_original);
+            if (!saida_descomprimida) {
+                perror("Erro ao alocar memória para descompressão");
+                fclose(saida);
+                continue;
+            }
+
+            int descomprimido = LZ_Decompress(buffer->dados, saida_descomprimida, m->tamanho_armazenado);
+            if (descomprimido != m->tamanho_original) {
+                fprintf(stderr, "Erro: tamanho descomprimido inválido para '%s'\n", m->nome);
+                free(saida_descomprimida);
+                fclose(saida);
+                continue;
+            }
+
+            fwrite(saida_descomprimida, 1, m->tamanho_original, saida);
+            free(saida_descomprimida);
+        } else {
+            // Membro plano → escrever direto
+            fwrite(buffer->dados, 1, m->tamanho_armazenado, saida);
+        }
+
+        fclose(saida);
+        printf("Membro extraído: %s\n", m->nome);
+    }
 }
 
 void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){

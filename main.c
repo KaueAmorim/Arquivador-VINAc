@@ -22,7 +22,7 @@ int main(int argc, char **argv){
 
     struct Buffer *buffer = criar_buffer(dir);
 
-    switch(cmd.op) {
+    switch(cmd.op){
         case OP_INVALIDA:
             fprintf(stderr, "Opção inválida: %s\n", argv[1]);
             return 1;
@@ -36,9 +36,11 @@ int main(int argc, char **argv){
             break;
         case OP_MOVER:
             printf("Movimentação\n");
+            executar_movimentacao(vc, dir, &cmd, buffer);
             break;
         case OP_EXTRAIR:
             printf("Extração\n");
+            executar_extracao(vc, dir, &cmd, buffer);
             break;
         case OP_REMOVER:
             printf("Remoção\n");
