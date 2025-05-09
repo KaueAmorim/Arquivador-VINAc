@@ -51,17 +51,17 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
 /**
  * Executa a movimentação de membros dentro do diretório (-m).
  */
-void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd);
+void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer);
 
 /**
  * Executa a extração de membros (-x).
  */
-void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd);
+void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer);
 
 /**
  * Executa a operação de remoção de membros (-r).
  */
-void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd);
+void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer);
 
 /**
  * Executa a listagem dos membros do diretório (-c).

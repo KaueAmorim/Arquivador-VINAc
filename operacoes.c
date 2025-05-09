@@ -81,8 +81,6 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 for(int j = existente->ordem + 1; j < dir->quantidade; j++){
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
-
-                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
             atualizar_membro(existente, cmd->membros[i]);
@@ -105,6 +103,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             } 
             else{
                 fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
+            }
+
+            if(diff < 0){
+                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
         } 
         else{
@@ -211,8 +213,6 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
                 for(int j = existente->ordem + 1; j < dir->quantidade; j++){
                     deslocar_membro(vc, buffer, dir->membros[j], diff);
                 }
-
-                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
             atualizar_membro(existente, cmd->membros[i]);
@@ -225,6 +225,10 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
             fseek(vc, existente->offset, SEEK_SET);
             if(fwrite(output, existente->tamanho_armazenado, 1, vc) != 1){
                 perror("Erro ao escrever conteúdo do membro substituído");
+            }
+
+            if(diff < 0){
+                ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
             free(novo); // porque não foi adicionado ao diretório
@@ -256,38 +260,48 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
     }
 }
 
-void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd){
+void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     return;
 }
 
-void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd){
+void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     return;
 }
 
-void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd){
+void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     
-    int removidos = 0;
-
     for(int i = 0; i < cmd->num_membros; i++){
-        if(remover_membro(dir, cmd->membros[i])){
-            printf("Membro removido: %s\n", cmd->membros[i]);
-            removidos++;
-        } 
-        else{
-            printf("Membro não encontrado: %s\n", cmd->membros[i]);
-        }
-    }
+        
+        struct Membro *m = buscar_membro(dir, cmd->membros[i]);
 
-    if(removidos > 0){
+        if(!m){
+            fprintf(stderr, "Membro %s não encontrado\n", cmd->membros[i]);
+            continue;
+        }
+
+        for(int j = 0; j < m->ordem; j++){
+            deslocar_membro(vc, buffer, dir->membros[j], -(sizeof(struct Membro)));
+        }
+
+        for(int j = m->ordem + 1; j < dir->quantidade; j++){
+            deslocar_membro(vc, buffer, dir->membros[j], -(m->tamanho_armazenado + sizeof(struct Membro)));
+        }
+
+        if(!remover_membro(dir, m->nome)){
+            fprintf(stderr, "Erro ao remover membro %s\n", m->nome);
+            continue;
+        }
+
         atualizar_offsets(dir);
-
         fseek(vc, 0, SEEK_SET);
-        if(!escrever_diretorio(vc, dir)){
-            fprintf(stderr, "Erro ao salvar diretório após remoção.\n");
+        escrever_diretorio(vc, dir);
+
+        if(dir->quantidade > 0){
+            ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
         }
-    } 
-    else{
-        printf("Nenhum membro foi removido.\n");
+        else{
+            ftruncate(fileno(vc), 0);
+        }
     }
 }
 

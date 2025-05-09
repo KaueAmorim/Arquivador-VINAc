@@ -19,6 +19,7 @@ struct Diretorio *criar_diretorio(){
 
     if(!(dir->membros = malloc(dir->capacidade * sizeof(struct Membro *)))){
         perror("Erro ao alocar membros do diretório");
+        free(dir);
         return NULL;
     }
     
@@ -38,11 +39,11 @@ void destruir_diretorio(struct Diretorio *dir){
 
 int garantir_capacidade_diretorio(struct Diretorio *dir) {
 
-    if(dir->quantidade > dir->capacidade) {
+    if(dir->quantidade >= dir->capacidade){
         dir->capacidade = dir->quantidade * 2;
 
         if(!(dir->membros = realloc(dir->membros, dir->capacidade * sizeof(struct Membro *)))) {
-            perror("Erro ao alocar memória para membros");
+            perror("Erro ao realocar vetor de membros");
             return 0;
         }
     }
@@ -63,13 +64,12 @@ int encontrar_indice(const struct Diretorio *dir, const char *nome) {
 
 int adicionar_membro(struct Diretorio *dir, struct Membro *novo){
 
-    (dir->quantidade)++;
-
     if(!garantir_capacidade_diretorio(dir)){
         return 0;
     }
 
-    dir->membros[dir->quantidade - 1] = novo;
+    dir->membros[dir->quantidade] = novo;
+    (dir->quantidade)++;
 
     return 1;
 }
@@ -78,16 +78,19 @@ int remover_membro(struct Diretorio *dir, const char *nome){
 
     int id = encontrar_indice(dir, nome);
     
-    if(id == -1) {
+    if(id == -1){
         return 0;
     }
 
-    (dir->quantidade)--;
+    // Libera o membro que será removido
+    free(dir->membros[id]);
 
-    for(int i = id; i < dir->quantidade; i++) {
+    for(int i = id; i < dir->quantidade - 1; i++){
         dir->membros[i] = dir->membros[i + 1];
         dir->membros[i]->ordem = i;
     }
+
+    (dir->quantidade)--;
 
     return 1;
 }

@@ -42,7 +42,7 @@ int main(int argc, char **argv){
             break;
         case OP_REMOVER:
             printf("Remoção\n");
-            executar_remocao(vc, dir, &cmd);
+            executar_remocao(vc, dir, &cmd, buffer);
             break;
         case OP_LISTAR:
             printf("Listagem\n");
