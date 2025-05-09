@@ -264,75 +264,72 @@ void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd,
     return;
 }
 
-void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer) {
+void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     
-    if (!vc || !dir || !buffer) {
-        fprintf(stderr, "Erro: parâmetros nulos em executar_extracao.\n");
-        return;
-    }
-
     int extrair_todos = (cmd->num_membros == 0);
 
-    for (int i = 0; i < dir->quantidade; i++) {
+    for(int i = 0; i < dir->quantidade; i++){
+        
         struct Membro *m = dir->membros[i];
 
-        if (!extrair_todos) {
+        if(!extrair_todos){
             int encontrado = 0;
-            for (int j = 0; j < cmd->num_membros; j++) {
-                if (strcmp(m->nome, cmd->membros[j]) == 0) {
+            for(int j = 0; j < cmd->num_membros; j++){
+                if(strcmp(m->nome, cmd->membros[j]) == 0){
                     encontrado = 1;
                     break;
                 }
             }
-            if (!encontrado) continue;
+            if(!encontrado){
+                continue;
+            }
         }
 
-        if (!redimensionar_buffer(buffer, m->tamanho_armazenado)) {
+        if(!redimensionar_buffer(buffer, m->tamanho_armazenado)){
             fprintf(stderr, "Erro ao redimensionar buffer para membro '%s'\n", m->nome);
             continue;
         }
 
-        if (fseek(vc, m->offset, SEEK_SET) != 0) {
+        if(fseek(vc, m->offset, SEEK_SET) != 0){
             perror("Erro ao posicionar no archive");
             continue;
         }
 
-        if (fread(buffer->dados, 1, m->tamanho_armazenado, vc) != m->tamanho_armazenado) {
+        if(fread(buffer->dados, m->tamanho_armazenado, 1, vc) != 1){
             fprintf(stderr, "Erro ao ler dados do membro '%s'\n", m->nome);
             continue;
         }
 
-        // Cria os diretórios ausentes, se necessário
-        criar_diretorios_para(m->nome);
-
         FILE *saida = fopen(m->nome, "wb");
-        if (!saida) {
+        if(!saida){
             perror("Erro ao criar arquivo extraído");
             continue;
         }
 
-        if (m->tamanho_armazenado != m->tamanho_original) {
+        if(m->tamanho_armazenado != m->tamanho_original){
+            
             // Membro comprimido → descomprimir
-            unsigned char *saida_descomprimida = malloc(m->tamanho_original);
-            if (!saida_descomprimida) {
+            unsigned char *saida_descomprimida;
+            if(!(saida_descomprimida = malloc(m->tamanho_original))){
                 perror("Erro ao alocar memória para descompressão");
                 fclose(saida);
                 continue;
             }
 
-            int descomprimido = LZ_Decompress(buffer->dados, saida_descomprimida, m->tamanho_armazenado);
-            if (descomprimido != m->tamanho_original) {
-                fprintf(stderr, "Erro: tamanho descomprimido inválido para '%s'\n", m->nome);
-                free(saida_descomprimida);
-                fclose(saida);
-                continue;
+            LZ_Uncompress(buffer->dados, saida_descomprimida, m->tamanho_armazenado);
+            
+            if(fwrite(saida_descomprimida, m->tamanho_original, 1, saida) != 1){
+                fprintf(stderr, "Erro ao escrever dados no arquivo '%s'\n", m->nome);
             }
 
-            fwrite(saida_descomprimida, 1, m->tamanho_original, saida);
             free(saida_descomprimida);
-        } else {
+        } 
+        else{
+            
             // Membro plano → escrever direto
-            fwrite(buffer->dados, 1, m->tamanho_armazenado, saida);
+            if(fwrite(buffer->dados, m->tamanho_armazenado, 1, saida) != 1){
+                fprintf(stderr, "Erro ao escrever dados no arquivo '%s'\n", m->nome);
+            }
         }
 
         fclose(saida);
@@ -372,7 +369,7 @@ void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, stru
             ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
         }
         else{
-            ftruncate(fileno(vc), 0);
+            ftruncate(fileno(vc), sizeof(int));
         }
     }
 }
