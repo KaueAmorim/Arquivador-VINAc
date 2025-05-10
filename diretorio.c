@@ -95,8 +95,28 @@ int remover_membro(struct Diretorio *dir, const char *nome){
     return 1;
 }
 
-int mover_membro(struct Diretorio *dir, const char *membro, const char *target){
-    return 0;
+void mover_membro(struct Diretorio *dir, int i_mover, int i_target){
+
+    struct Membro *m = dir->membros[i_mover];
+
+    if(i_mover > i_target){
+        for(int i = i_mover; i > i_target + 1; i--){
+            dir->membros[i] = dir->membros[i - 1];
+            dir->membros[i]->ordem = i;
+        }
+        
+        dir->membros[i_target + 1] = m;
+        m->ordem = i_target + 1;
+    } 
+    else{
+        for(int i = i_mover; i < i_target; i++){
+            dir->membros[i] = dir->membros[i + 1];
+            dir->membros[i]->ordem = i;
+        }
+
+        dir->membros[i_target] = m;
+        m->ordem = i_target;
+    }
 }
 
 struct Membro *buscar_membro(struct Diretorio *dir, const char *nome){

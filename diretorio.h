@@ -49,9 +49,8 @@ int remover_membro(struct Diretorio *dir, const char *nome);
 
 /**
  * Move um membro para depois de outro.
- * Retorna 1 em caso de sucesso, 0 se um dos membros não for encontrado.
  */
-int mover_membro(struct Diretorio *dir, const char *membro, const char *target);
+void mover_membro(struct Diretorio *dir, int i_mover, int i_target);
 
 /**
  * Busca e retorna um ponteiro para um membro pelo nome.
