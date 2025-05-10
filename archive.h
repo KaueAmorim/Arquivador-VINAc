@@ -8,7 +8,7 @@
 /**
  * Cria e inicializa um buffer.
  */
-struct Buffer *criar_buffer();
+struct Buffer *criar_buffer(struct Diretorio *dir);
 
 /**
  * Redimensiona um buffer.
@@ -39,16 +39,5 @@ int ler_diretorio(FILE *vc, struct Diretorio *dir);
  * Salva o diretório no início de um arquivo archive (.vc).
  */
 int escrever_diretorio(FILE *vc, const struct Diretorio *dir);
-
-/**
- * Escreve os dados reais dos arquivos dos membros no arquivo .vc.
- */
-int escrever_membros(FILE *vc, struct Diretorio *dir);
-
-/**
- * Extrai os membros do archive .vc para arquivos no disco.
- * Se `nomes` for NULL ou `num_nomes == 0`, extrai todos.
- */
-int extrair_membros(FILE *vc, struct Diretorio *dir, char **nomes, int num_nomes);
 
 #endif

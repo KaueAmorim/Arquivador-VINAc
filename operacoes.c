@@ -68,18 +68,18 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
         struct Membro *existente = buscar_membro(dir, cmd->membros[i]);
 
-        struct Membro *novo = criar_membro(cmd->membros[i], dir->quantidade);
-
-        if(!redimensionar_buffer(buffer, novo->tamanho_armazenado)){
-            fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
-            free(novo);
-            continue;
-        }
-
         if(existente){
-            long diff = novo->tamanho_armazenado - existente->tamanho_armazenado;
 
-            free(novo);
+            size_t tamanho_antigo = existente->tamanho_armazenado;
+
+            atualizar_membro(existente, cmd->membros[i]);
+
+            if(!redimensionar_buffer(buffer, existente->tamanho_armazenado)){
+                fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", existente->nome);
+                continue;
+            }
+
+            long diff = existente->tamanho_armazenado - tamanho_antigo;
 
             if(diff > 0){
                 for(int j = dir->quantidade - 1; j > existente->ordem; j--){
@@ -92,7 +92,6 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 }
             }
 
-            atualizar_membro(existente, cmd->membros[i]);
             atualizar_offsets(dir);
             fseek(vc, 0, SEEK_SET);
             escrever_diretorio(vc, dir);
@@ -111,16 +110,25 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 }
             } 
             else{
-                fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
+                fprintf(stderr, "Erro ao abrir %s para leitura\n", existente->nome);
             }
 
             if(diff < 0){
                 ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
 
-            printf("Membro substituído descomprimido: %s\n", existente->nome);
+            printf("Membro substituído plano: %s\n", existente->nome);
         } 
         else{
+
+            struct Membro *novo = criar_membro(cmd->membros[i], dir->quantidade);
+
+            if(!redimensionar_buffer(buffer, novo->tamanho_armazenado)){
+                fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
+                free(novo);
+                continue;
+            }
+
             if(!adicionar_membro(dir, novo)){
                 fprintf(stderr, "Erro ao adicionar membro: %s\n", cmd->membros[i]);
                 free(novo);
@@ -154,7 +162,7 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
                 fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
             }
 
-            printf("Membro inserido descomprimido: %s\n", existente->nome);
+            printf("Membro inserido plano: %s\n", novo->nome);
         }
     }
 }
@@ -278,7 +286,73 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
 }
 
 void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
-    return;
+    
+    struct Membro *mover = buscar_membro(dir, cmd->membros[0]);
+    struct Membro *target = buscar_membro(dir, cmd->target);
+    
+    int ordem_target = target->ordem;
+
+    if(!mover || !target){
+        fprintf(stderr, "Erro ao encontrar membro para mover ou alvo\n");
+        return;
+    }
+
+    if(mover->ordem == ordem_target || mover->ordem == ordem_target + 1){
+        printf("Membro já está na posição desejada: %s\n", mover->nome);
+        return;
+    }
+    
+    unsigned char *aux;
+    if(!(aux = malloc(mover->tamanho_original))){
+        perror("Erro ao alocar memória para descompressão");
+        return;
+    }
+
+    if(fseek(vc, mover->offset, SEEK_SET) != 0){
+        perror("Erro ao posicionar no archive");
+        free(aux);
+        return;
+    }
+
+    if(fread(aux, mover->tamanho_armazenado, 1, vc) != 1){
+        fprintf(stderr, "Erro ao ler dados do membro '%s'\n", mover->nome);
+        free(aux);
+        return;
+    }
+
+    // Desloca o membro para a nova posição
+    if(mover->ordem > ordem_target){
+        for(int i = mover->ordem - 1; i > ordem_target; i--){
+            deslocar_membro(vc, buffer, dir->membros[i], mover->tamanho_armazenado);
+        }
+    } 
+    else{
+        for(int i = mover->ordem + 1; i <= ordem_target; i++){
+            deslocar_membro(vc, buffer, dir->membros[i], -(mover->tamanho_armazenado));
+        }
+    }
+
+    mover_membro(dir, mover->ordem, ordem_target);
+    atualizar_offsets(dir);
+    fseek(vc, 0, SEEK_SET);
+    escrever_diretorio(vc, dir);
+
+    // Escreve o membro na nova posição
+    if(fseek(vc, target->offset + target->tamanho_armazenado, SEEK_SET) != 0){
+        perror("Erro ao posicionar para escrita do membro");
+        free(aux);
+        return;
+    }
+
+    if(fwrite(aux, mover->tamanho_armazenado, 1, vc) != 1){
+        fprintf(stderr, "Erro ao escrever dados do membro '%s'\n", mover->nome);
+        free(aux);
+        return;
+    }
+    
+    free(aux);
+
+    printf("Membro movido: %s\n", mover->nome);
 }
 
 void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
@@ -300,11 +374,6 @@ void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, str
             if(!encontrado){
                 continue;
             }
-        }
-
-        if(!redimensionar_buffer(buffer, m->tamanho_armazenado)){
-            fprintf(stderr, "Erro ao redimensionar buffer para membro '%s'\n", m->nome);
-            continue;
         }
 
         if(fseek(vc, m->offset, SEEK_SET) != 0){

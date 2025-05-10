@@ -174,7 +174,3 @@ int escrever_diretorio(FILE *vc, const struct Diretorio *dir){
 
     return 1;
 }
-
-int extrair_membros(FILE *vc, struct Diretorio *dir, char **nomes, int num_nomes) {
-    return 0;
-}
