@@ -22,32 +22,41 @@ int identificar_operacao(const char *arg) {
 
 struct Comando parse_comando(int argc, char **argv) {
     
-    struct Comando cmd;
-    
-    cmd.op = OP_INVALIDA;
-    cmd.membros = NULL;
-    cmd.num_membros = 0;
-    cmd.target = NULL;
+    struct Comando cmd = {OP_INVALIDA, NULL, NULL, 0, NULL};
 
-    if(argc < 3) {
+    if(argc < 3){
         fprintf(stderr, "Uso: vinac <opção> <arquivo.vc> [membros...]\n");
         return cmd;
     }
 
     cmd.op = identificar_operacao(argv[1]);
+
+    if(cmd.op == OP_MOVER){
+        if(argc < 5){
+            fprintf(stderr, "Uso para mover: vinac -m <membro_target> <arquivo.vc> <membro_mover>\n");
+            return cmd;
+        }
+
+        cmd.target = argv[2];
+        cmd.arquivo_vc = argv[3];
+        cmd.num_membros = 1;
+        cmd.membros = malloc(sizeof(char *));
+        cmd.membros[0] = argv[4];
+
+        return cmd;
+    }
+
     cmd.arquivo_vc = argv[2];
 
-    if(cmd.op != OP_LISTAR) {
-        
-        cmd.num_membros = argc - 3;
-        
-        if(cmd.num_membros > 0) {
-            cmd.membros = malloc(sizeof(char *) * cmd.num_membros);
-            
-            for(int i = 0; i < cmd.num_membros; i++) {
-                cmd.membros[i] = argv[i + 3];
-            }
-        }
+    if(cmd.op == OP_LISTAR){
+        return cmd;
+    }
+
+    cmd.num_membros = argc - 3;
+
+    cmd.membros = malloc(sizeof(char *) * cmd.num_membros);
+    for(int i = 0; i < cmd.num_membros; i++){
+        cmd.membros[i] = argv[i + 3];
     }
 
     return cmd;
@@ -108,6 +117,8 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             if(diff < 0){
                 ftruncate(fileno(vc), dir->membros[dir->quantidade - 1]->offset + dir->membros[dir->quantidade - 1]->tamanho_armazenado);
             }
+
+            printf("Membro substituído descomprimido: %s\n", existente->nome);
         } 
         else{
             if(!adicionar_membro(dir, novo)){
@@ -142,6 +153,8 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
             else{
                 fprintf(stderr, "Erro ao abrir %s para leitura\n", novo->nome);
             }
+
+            printf("Membro inserido descomprimido: %s\n", existente->nome);
         }
     }
 }
@@ -185,7 +198,7 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
         }
 
         // Comprime os dados
-        int tamanho_comprimido = LZ_Compress(buffer->dados, output, novo->tamanho_original);
+        int tamanho_comprimido = LZ_Compress(buffer->dados, output, (unsigned int)novo->tamanho_original);
         
         // Compressão foi ineficiente — armazenar plano
         if(tamanho_comprimido >= novo->tamanho_original){
@@ -232,6 +245,8 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
             }
 
             free(novo); // porque não foi adicionado ao diretório
+
+            printf("Membro substituído comprimido: %s\n", existente->nome);
         } 
         else{
             if(!adicionar_membro(dir, novo)){
@@ -254,6 +269,8 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
             if(fwrite(output, novo->tamanho_armazenado, 1, vc) != 1){
                 perror("Erro ao escrever conteúdo do novo membro");
             }
+
+            printf("Membro inserido comprimido: %s\n", existente->nome);
         }
 
         free(output);
@@ -323,6 +340,8 @@ void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, str
             }
 
             free(saida_descomprimida);
+
+            printf("Membro descomprimido e extraído: %s\n", m->nome);
         } 
         else{
             
@@ -330,10 +349,11 @@ void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, str
             if(fwrite(buffer->dados, m->tamanho_armazenado, 1, saida) != 1){
                 fprintf(stderr, "Erro ao escrever dados no arquivo '%s'\n", m->nome);
             }
+
+            printf("Membro extraído: %s\n", m->nome);
         }
 
         fclose(saida);
-        printf("Membro extraído: %s\n", m->nome);
     }
 }
 
@@ -371,6 +391,8 @@ void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, stru
         else{
             ftruncate(fileno(vc), sizeof(int));
         }
+
+        printf("Membro removido: %s\n", m->nome);
     }
 }
 

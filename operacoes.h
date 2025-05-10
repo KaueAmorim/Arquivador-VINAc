@@ -19,12 +19,12 @@ struct Comando {
     int op;
     char *arquivo_vc;
     char **membros;
-    int num_membros;
+    unsigned int num_membros;
     char *target; // usado apenas na operação -m
 };
 
 struct Buffer{
-    char *dados;
+    unsigned char *dados;
     size_t tamanho;
 };
 
