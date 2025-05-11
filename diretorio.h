@@ -2,7 +2,6 @@
 #define DIRETORIO_H
 
 #include "membro.h"
-#include <stdio.h>
 
 struct Diretorio {
     struct Membro **membros;  // Vetor dinâmico de ponteiros para membros

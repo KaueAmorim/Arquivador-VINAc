@@ -1,6 +1,8 @@
-#include "membro.h"
-#include "diretorio.h"
-#include "archive.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "operacoes.h"
 #include "lz.h"
 
@@ -25,16 +27,21 @@ struct Comando parse_comando(int argc, char **argv) {
     struct Comando cmd = {OP_INVALIDA, NULL, NULL, 0, NULL};
 
     if(argc < 3){
-        fprintf(stderr, "Uso: vinac <opção> <arquivo.vc> [membros...]\n");
-        return cmd;
+        fprintf(stderr, "Uso: vina <opção> <arquivo.vc> [membros...]\n");
+        exit(1);
     }
 
     cmd.op = identificar_operacao(argv[1]);
 
+    if(cmd.op == OP_INVALIDA){
+        fprintf(stderr, "Opção inválida: %s\n", argv[1]);
+        exit(1);
+    }
+
     if(cmd.op == OP_MOVER){
         if(argc < 5){
-            fprintf(stderr, "Uso para mover: vinac -m <membro_target> <arquivo.vc> <membro_mover>\n");
-            return cmd;
+            fprintf(stderr, "Uso para mover: vina -m <membro_target> <arquivo.vc> <membro_mover>\n");
+            exit(1);
         }
 
         cmd.target = argv[2];
@@ -54,6 +61,16 @@ struct Comando parse_comando(int argc, char **argv) {
 
     cmd.num_membros = argc - 3;
 
+    if(cmd.num_membros == 0 && cmd.op == OP_EXTRAIR){
+        return cmd;
+    }
+
+    // Demais comandos: -ip, -ic, -x, -r
+    if(argc < 4){
+        fprintf(stderr, "Uso: vina <opção> <arquivo.vc> [membros...]\n");
+        exit(1);
+    }
+
     cmd.membros = malloc(sizeof(char *) * cmd.num_membros);
     for(int i = 0; i < cmd.num_membros; i++){
         cmd.membros[i] = argv[i + 3];
@@ -63,6 +80,11 @@ struct Comando parse_comando(int argc, char **argv) {
 }
 
 void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
+
+    if(!dir || !cmd || !buffer){
+        fprintf(stderr, "Parâmetro nulo em executar_insercao_plana.\n");
+        return;
+    }
     
     for(int i = 0; i < cmd->num_membros; i++) {
 
@@ -72,7 +94,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
             size_t tamanho_antigo = existente->tamanho_armazenado;
 
-            atualizar_membro(existente, cmd->membros[i]);
+            if(!(atualizar_membro(existente, cmd->membros[i]))){
+                fprintf(stderr, "Erro ao atualizar membro: %s\n", cmd->membros[i]);
+                continue;
+            }
 
             if(!redimensionar_buffer(buffer, existente->tamanho_armazenado)){
                 fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", existente->nome);
@@ -122,6 +147,10 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
         else{
 
             struct Membro *novo = criar_membro(cmd->membros[i], dir->quantidade);
+            if(!novo){
+                fprintf(stderr, "Erro ao criar novo membro: %s\n", cmd->membros[i]);
+                continue;
+            }
 
             if(!redimensionar_buffer(buffer, novo->tamanho_armazenado)){
                 fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
@@ -169,11 +198,20 @@ void executar_insercao_plana(FILE *vc, struct Diretorio *dir, struct Comando *cm
 
 void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     
+    if(!dir || !cmd || !buffer){
+        fprintf(stderr, "Parâmetro nulo em executar_insercao_comprimida.\n");
+        return;
+    }
+    
     for(int i = 0; i < cmd->num_membros; i++) {
 
         struct Membro *existente = buscar_membro(dir, cmd->membros[i]);
 
         struct Membro *novo = criar_membro(cmd->membros[i], dir->quantidade);
+        if(!novo){
+            fprintf(stderr, "Erro ao criar novo membro: %s\n", cmd->membros[i]);
+            continue;
+        }
 
         if(!redimensionar_buffer(buffer, novo->tamanho_original)){
             fprintf(stderr, "Erro ao garantir espaço no buffer para %s\n", novo->nome);
@@ -209,7 +247,7 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
         int tamanho_comprimido = LZ_Compress(buffer->dados, output, (unsigned int)novo->tamanho_original);
         
         // Compressão foi ineficiente — armazenar plano
-        if(tamanho_comprimido >= novo->tamanho_original){
+        if((size_t)tamanho_comprimido >= novo->tamanho_original){
             free(novo);
             free(output);
 
@@ -278,7 +316,7 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
                 perror("Erro ao escrever conteúdo do novo membro");
             }
 
-            printf("Membro inserido comprimido: %s\n", existente->nome);
+            printf("Membro inserido comprimido: %s\n", novo->nome);
         }
 
         free(output);
@@ -287,23 +325,45 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
 
 void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     
+    if(!dir || !cmd || !buffer){
+        fprintf(stderr, "Parâmetro nulo em executar_movimentacao.\n");
+        return;
+    }
+    
     struct Membro *mover = buscar_membro(dir, cmd->membros[0]);
-    struct Membro *target = buscar_membro(dir, cmd->target);
-    
-    int ordem_target = target->ordem;
+    struct Membro *target;
 
-    if(!mover || !target){
-        fprintf(stderr, "Erro ao encontrar membro para mover ou alvo\n");
+    if(!mover){
+        fprintf(stderr, "Erro: membro %s a mover não encontrado\n", cmd->membros[0]);
         return;
     }
 
-    if(mover->ordem == ordem_target || mover->ordem == ordem_target + 1){
-        printf("Membro já está na posição desejada: %s\n", mover->nome);
-        return;
+    int ordem_target = -1; // padrão: mover para o início
+
+    if(strcmp(cmd->target, "NULL") != 0){
+
+        target = buscar_membro(dir, cmd->target);
+        if(!target){
+            fprintf(stderr, "Erro: membro target %s não encontrado\n", cmd->target);
+            return;
+        }
+
+        ordem_target = target->ordem;
+
+        if(mover->ordem == ordem_target || mover->ordem == ordem_target + 1){
+            printf("Membro %s já está na posição desejada\n", mover->nome);
+            return;
+        }
+    } 
+    else{
+        if(mover->ordem == 0){
+            printf("Membro %s já está no início\n", mover->nome);
+            return;
+        }
     }
-    
+
     unsigned char *aux;
-    if(!(aux = malloc(mover->tamanho_original))){
+    if(!(aux = malloc(mover->tamanho_armazenado))){
         perror("Erro ao alocar memória para descompressão");
         return;
     }
@@ -315,7 +375,7 @@ void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd,
     }
 
     if(fread(aux, mover->tamanho_armazenado, 1, vc) != 1){
-        fprintf(stderr, "Erro ao ler dados do membro '%s'\n", mover->nome);
+        fprintf(stderr, "Erro ao ler dados do membro %s\n", mover->nome);
         free(aux);
         return;
     }
@@ -338,10 +398,23 @@ void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd,
     escrever_diretorio(vc, dir);
 
     // Escreve o membro na nova posição
-    if(fseek(vc, target->offset + target->tamanho_armazenado, SEEK_SET) != 0){
-        perror("Erro ao posicionar para escrita do membro");
-        free(aux);
-        return;
+    if(ordem_target == -1){
+        if(fseek(vc, sizeof(int) + dir->quantidade * sizeof(struct Membro), SEEK_SET) != 0){
+            perror("Erro ao posicionar para escrita do membro");
+            free(aux);
+            return;
+        }
+
+        printf("Membro %s movido para o início\n", mover->nome);
+    } 
+    else{
+        if(fseek(vc, target->offset + target->tamanho_armazenado, SEEK_SET) != 0){
+            perror("Erro ao posicionar para escrita do membro");
+            free(aux);
+            return;
+        }
+
+        printf("Membro %s movido para a frente do membro %s\n", mover->nome, target->nome);
     }
 
     if(fwrite(aux, mover->tamanho_armazenado, 1, vc) != 1){
@@ -351,11 +424,14 @@ void executar_movimentacao(FILE *vc, struct Diretorio *dir, struct Comando *cmd,
     }
     
     free(aux);
-
-    printf("Membro movido: %s\n", mover->nome);
 }
 
 void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
+    
+    if(!dir || !cmd || !buffer){
+        fprintf(stderr, "Parâmetro nulo em executar_extracao.\n");
+        return;
+    }
     
     int extrair_todos = (cmd->num_membros == 0);
 
@@ -428,14 +504,24 @@ void executar_extracao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, str
 
 void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, struct Buffer *buffer){
     
+    if(!dir || !cmd || !buffer){
+        fprintf(stderr, "Parâmetro nulo em executar_remocao.\n");
+        return;
+    }
+    
     for(int i = 0; i < cmd->num_membros; i++){
         
         struct Membro *m = buscar_membro(dir, cmd->membros[i]);
-
         if(!m){
             fprintf(stderr, "Membro %s não encontrado\n", cmd->membros[i]);
             continue;
         }
+
+        size_t tamanho_remocao = m->tamanho_armazenado;
+
+        char nome_copia[1025];
+        strncpy(nome_copia, m->nome, sizeof(nome_copia));
+        nome_copia[1024] = '\0';
 
         for(int j = 0; j < m->ordem; j++){
             deslocar_membro(vc, buffer, dir->membros[j], -(sizeof(struct Membro)));
@@ -461,11 +547,32 @@ void executar_remocao(FILE *vc, struct Diretorio *dir, struct Comando *cmd, stru
             ftruncate(fileno(vc), sizeof(int));
         }
 
-        printf("Membro removido: %s\n", m->nome);
+        // Alocação de um buffer para o maior membro presente no archive
+        if(tamanho_remocao == buffer->tamanho){
+
+            buffer->tamanho = 1;
+
+            for(int i = 0; i < dir->quantidade; i++){
+                if(dir->membros[i] && dir->membros[i]->tamanho_armazenado > buffer->tamanho){
+                    buffer->tamanho = dir->membros[i]->tamanho_armazenado;
+                }
+            }
+
+            if(!redimensionar_buffer(buffer, buffer->tamanho)){
+                fprintf(stderr, "Erro ao redimensionar buffer para %zu bytes\n", buffer->tamanho);
+            }
+        }
+
+        printf("Membro removido: %s\n", nome_copia);
     }
 }
 
 void executar_listagem(struct Diretorio *dir){
+    
+    if(!dir){
+        fprintf(stderr, "Parâmetro nulo em executar_listagem.\n");
+        return;
+    }
     
     printf("=== Conteúdo do Diretório ===\n");
 

@@ -1,8 +1,9 @@
-#include "membro.h"
-#include "diretorio.h"
-#include "archive.h"
-#include "operacoes.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <string.h>
 
+#include "membro.h"
 
 struct Membro *criar_membro(const char *caminho_arquivo, int ordem){
     
@@ -18,7 +19,8 @@ struct Membro *criar_membro(const char *caminho_arquivo, int ordem){
 
     if(stat(caminho_arquivo, &info) == -1){
         perror("Erro ao acessar o arquivo");
-        exit(1);
+        free(novo);
+        return NULL;
     }
 
     novo->uid = info.st_uid;
@@ -34,19 +36,21 @@ struct Membro *criar_membro(const char *caminho_arquivo, int ordem){
     return novo;
 }
 
-void atualizar_membro(struct Membro *m, const char *caminho_arquivo){
+int atualizar_membro(struct Membro *m, const char *caminho_arquivo){
     
     struct stat info;
 
     if(stat(caminho_arquivo, &info) == -1){
         perror("Erro ao acessar o arquivo para atualização");
-        exit(1);
+        return 0;
     }
 
     m->uid = info.st_uid;
     m->tamanho_original = info.st_size;
     m->tamanho_armazenado = info.st_size;
     m->data_modificacao = info.st_mtime;
+
+    return 1;
 }
 
 

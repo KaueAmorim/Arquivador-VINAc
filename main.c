@@ -1,18 +1,27 @@
-#include "membro.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "diretorio.h"
-#include "archive.h"
 #include "operacoes.h"
 
 int main(int argc, char **argv){
     
     struct Comando cmd = parse_comando(argc, argv);
+
+    if(cmd.op == OP_INVALIDA){
+        return 1;
+    }
+
     FILE *vc = fopen(cmd.arquivo_vc, "rb+");
     
     if(!vc){
         // Se não existe, cria novo arquivo
         vc = fopen(cmd.arquivo_vc, "wb+");
         if(!vc){
-            perror("Erro ao abrir/criar arquivo .vc");
+            fprintf(stderr, "Erro ao abrir/criar arquivo .vc\n");
+            if(cmd.membros){
+                free(cmd.membros);
+            }
             return 1;
         }
     }
@@ -23,9 +32,6 @@ int main(int argc, char **argv){
     struct Buffer *buffer = criar_buffer(dir);
 
     switch(cmd.op){
-        case OP_INVALIDA:
-            fprintf(stderr, "Opção inválida: %s\n", argv[1]);
-            return 1;
         case OP_INSERIR_PLANO:
             executar_insercao_plana(vc, dir, &cmd, buffer);
             break;

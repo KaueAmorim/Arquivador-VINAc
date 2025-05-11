@@ -1,7 +1,8 @@
-#include "membro.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "diretorio.h"
-#include "archive.h"
-#include "operacoes.h"
 
 #define CAPACIDADE_INICIAL 10
 

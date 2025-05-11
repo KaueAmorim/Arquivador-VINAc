@@ -13,7 +13,7 @@ struct Buffer *criar_buffer(struct Diretorio *dir);
 /**
  * Redimensiona um buffer.
  */
-int redimensionar_buffer(struct Buffer *buffer, int novo_tamanho);
+int redimensionar_buffer(struct Buffer *buffer, size_t novo_tamanho);
 
 /**
  * Libera toda a memória associada ao buffer.

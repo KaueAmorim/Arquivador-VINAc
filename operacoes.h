@@ -1,7 +1,6 @@
 #ifndef OPERACOES_H
 #define OPERACOES_H
 
-#include "membro.h"
 #include "diretorio.h"
 #include "archive.h"
 
@@ -19,7 +18,7 @@ struct Comando {
     int op;
     char *arquivo_vc;
     char **membros;
-    unsigned int num_membros;
+    int num_membros;
     char *target; // usado apenas na operação -m
 };
 

@@ -4,11 +4,6 @@
 #include <stddef.h>
 #include <time.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 struct Membro{
     char nome[1025];            // Nome do arquivo (sem espaços)
@@ -29,8 +24,9 @@ struct Membro *criar_membro(const char *caminho_arquivo, int ordem);
 
 /**
  * Atualiza os dados do membro com base em um novo arquivo (substituição).
+ * Retorna 0 em caso de erro, 1 em caso de sucesso.
  */
-void atualizar_membro(struct Membro *m, const char *caminho_arquivo);
+int atualizar_membro(struct Membro *m, const char *caminho_arquivo);
 
 /**
  * Imprime os dados de um membro de forma formatada.

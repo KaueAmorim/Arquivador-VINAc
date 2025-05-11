@@ -1,8 +1,7 @@
-#include "membro.h"
-#include "diretorio.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "archive.h"
-#include "operacoes.h"
-#include "lz.h"
 
 struct Buffer *criar_buffer(struct Diretorio *dir){
     
@@ -31,7 +30,7 @@ struct Buffer *criar_buffer(struct Diretorio *dir){
     return buffer;
 }
 
-int redimensionar_buffer(struct Buffer *buffer, int novo_tamanho){
+int redimensionar_buffer(struct Buffer *buffer, size_t novo_tamanho){
     
     if(!buffer || novo_tamanho <= buffer->tamanho){
         return 1;

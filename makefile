@@ -1,27 +1,28 @@
 # Nome do executável
-EXEC = vinac
+EXEC = vina
 
 # Compilador e flags
-CC = gcc -g
+CC = gcc
+CFLAGS = -Wall -Wextra -g
 
-# Arquivos-fonte
-SRC = main.c membro.c diretorio.c archive.c operacoes.c lz.c
-OBJ = $(SRC:.c=.o)
+# Arquivos-fonte e objetos
+SRCS = main.c archive.c diretorio.c lz.c membro.c operacoes.c
+OBJS = $(SRCS:.c=.o)
 
 # Regra principal
 all: $(EXEC)
 
-# Regra para gerar o executável
-$(EXEC): $(OBJ)
-	$(CC) -o $@ $^
+# Como construir o executável
+$(EXEC): $(OBJS)
+	$(CC) $(CFLAGS) -o $(EXEC) $(OBJS)
 
-# Compilação de .c para .o
+# Regra para compilar arquivos .c em .o
 %.o: %.c
-	$(CC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Limpeza dos arquivos gerados
+# Regra de limpeza
 clean:
-	rm -f $(EXEC) *.o arquivo.vc
+	rm -f $(OBJS) $(EXEC)
 
+# Evita que arquivos como "clean" e "all" sejam interpretados como arquivos
 .PHONY: all clean
-
