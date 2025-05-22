@@ -251,6 +251,8 @@ void executar_insercao_comprimida(FILE *vc, struct Diretorio *dir, struct Comand
             free(novo);
             free(output);
 
+            printf("Compressão ineficiente, armazenando como plano: %s\n", cmd->membros[i]);
+
             struct Comando unico = {OP_INSERIR_PLANO, cmd->arquivo_vc, &cmd->membros[i], 1, NULL};
             executar_insercao_plana(vc, dir, &unico, buffer);
 
